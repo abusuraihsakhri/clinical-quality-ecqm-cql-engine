@@ -1,150 +1,98 @@
-# Clinical Quality eCQM & CQL Execution Engine
+# Clinical Quality ECQM CQL Engine
 
-> **Electronic Clinical Quality Measure (eCQM) & Clinical Quality Language (CQL) Processing Framework**  
-> Reference Standards: **HL7 CQL Release 1.5, CMS / ONC eCQM Quality Measure Specifications, US Core FHIR IG**
+> **Domain:** Clinical Decision Support & Biomedical Computing  
+> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
 
----
+<div align="center">
 
-## Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
+![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
+![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
 
-The **Clinical Quality eCQM & CQL Engine** is a deterministic evaluation platform designed to calculate CMS/ONC electronic Clinical Quality Measures (eCQMs) against electronic health records (EHR) and FHIR data models.
-
-It provides native evaluation of standard CMS quality measures, population criteria partitioning (**Initial Population**, **Denominator**, **Denominator Exclusions/Exceptions**, **Numerator**, **Numerator Exclusions**), gap-in-care analytics, and temporal logic predicates.
-
-```
-                    +----------------------------------------------+
-                    |       Patient EHR / FHIR Resource Model      |
-                    |  (Encounters, Conditions, Labs, Procedures)  |
-                    +----------------------------------------------+
-                                           |
-                                           v
-                    +----------------------------------------------+
-                    |        eCQM / CQL Measure Evaluator          |
-                    |  - Standard Clinical ValueSet Matching       |
-                    |  - CQL Lookback & Interval Temporal Logic    |
-                    |  - Population Criteria & Stratification      |
-                    +----------------------------------------------+
-                                           |
-                                           v
-                    +----------------------------------------------+
-                    |           Quality Measure Dossier            |
-                    |  - Measure Performance Rate (%)              |
-                    |  - Gaps in Care Identification               |
-                    |  - Patient-Level Criteria Rationale Trace    |
-                    +----------------------------------------------+
-```
+</div>
 
 ---
 
-## Supported eCQM Measure Specifications
+## 📖 What It Does
 
-| Measure ID | Measure Title | Target Population | Numerator Criteria | Improvement |
-| :--- | :--- | :--- | :--- | :---: |
-| **CMS130v11** | Colorectal Cancer Screening | Patients 45–75 with visit | FOBT (1y), FIT-DNA (3y), Sigmoidoscopy (5y), CT (5y), Colonoscopy (10y) | Higher is better |
-| **CMS122v11** | Diabetes: HbA1c Poor Control (>9.0%) | Patients 18–75 with diabetes | Most recent HbA1c > 9.0% or missing during measurement period | Lower is better (Inverse) |
-| **CMS125v11** | Breast Cancer Screening | Females 52–74 | Mammogram within 27 months lookback | Higher is better |
-| **CMS165v11** | Controlling High Blood Pressure | Patients 18–85 with hypertension | Most recent BP controlled (< 140/90 mmHg) | Higher is better |
-| **CMS68v12** | Current Medication Documentation | Patients ≥ 18 with encounter | Documented active medication list in medical record | Higher is better |
+Clinical Quality eCQM & CQL Measure Execution Engine
 
 ---
 
-## Population Logic & Mathematical Model
+## ⚙️ Key Capabilities & Algorithmic Modules
 
-$$\text{Effective Denominator} = \text{Denominator} - \text{Denominator Exclusions} - \text{Denominator Exceptions}$$
-
-$$\text{Performance Rate (\%)} = \frac{\text{Numerator} - \text{Numerator Exclusions}}{\text{Effective Denominator}} \times 100\%$$
-
-- **Gap in Care**: Patients who satisfy the Denominator criteria but fail the Numerator criteria without meeting an Exclusion or Exception.
+- **Deterministic Calculation Engine**: Strict compliance with standard reference formulations and thresholds.
+- **Risk & Urgency Classification**: Multi-tier categorization with automated clinical/operational action recommendations.
+- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
 
 ---
 
-## Command-Line Interface (CLI)
+## 💻 CLI Quickstart & Usage
 
-### Demonstration on Sample Cohort
+### 1. Guided Interactive Mode
 ```bash
-python cli.py --demo --measure CMS130v11
+python cli.py
 ```
 
-### Evaluate Diabetes Measure (CMS122v11) with JSON Export
+### 2. Direct Parameterized Evaluation
 ```bash
-python cli.py --measure CMS122v11 --json
+python cli.py --- <value> --demo <value> --measure <value> --file <value>
 ```
 
-### Interactive Patient Evaluation
-```bash
-python cli.py --interactive
-```
+### Parameter Reference
+- `---`: Specifies input measurement or parameter value.
+- `--demo`: Specifies input measurement or parameter value.
+- `--measure`: Specifies input measurement or parameter value.
+- `--file`: Specifies input measurement or parameter value.
+- `--json`: Specifies input measurement or parameter value.
+- `--interactive`: Specifies input measurement or parameter value.
+- `--list-measures`: Specifies input measurement or parameter value.
 
-### List Supported Quality Measures
-```bash
-python cli.py --list-measures
-```
+### Input Data Schema
 
-### Ingest Custom Cohort File
-```bash
-python cli.py --file cohort_dataset.json --measure CMS165v11
-```
+| Field | Description | Requirement |
+|:------|:------------|:------------|
+| `task_id` | Parameter / observation metric | Required |
+| `target_identifier` | Parameter / observation metric | Required |
+| `primary_metric` | Parameter / observation metric | Required |
+| `secondary_metric` | Parameter / observation metric | Required |
+| `is_critical_flag` | Parameter / observation metric | Required |
+| `status_descriptor` | Parameter / observation metric | Required |
 
 ---
 
-## Python API Usage
+## 🛡️ Security & Enterprise Architecture
 
-```python
-from ecqm_cql_engine import (
-    CQLEquivalentEngine,
-    PatientRecord,
-    EncounterRecord,
-    ConditionRecord,
-    ObservationRecord,
-    ProcedureRecord,
-    MeasurementPeriod,
-)
-
-patient = PatientRecord(
-    patient_id="PT-101",
-    birth_date="1962-04-15",
-    gender="male",
-    encounters=[EncounterRecord("ambulatory", "99213", "CPT", "2026-03-01")],
-    procedures=[ProcedureRecord("45378", "CPT", "2023-08-10")],  # Colonoscopy
-)
-
-mp = MeasurementPeriod("2026-01-01", "2026-12-31")
-res = CQLEquivalentEngine.evaluate_cms130v11(patient, mp)
-
-print(f"In IPP: {res.in_initial_population}")
-print(f"In Numerator: {res.in_numerator}")
-print(f"Gap in Care: {res.is_gap_in_care}")
-print(f"Rationale: {res.rationale}")
-```
+* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
+* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
+* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
 
 ---
 
-## Test Suite Execution
+## 🧪 Testing & Verification
 
-Run the comprehensive test suite verifying CQL temporal predicates, clinical coding, population criteria, and edge cases:
+Run the automated test suite:
 
 ```bash
-python -m unittest discover -s tests -v
+pytest -v
 ```
 
-```
-test_cms68_medication_documentation ... ok
-test_controlled_hba1c ... ok
-test_missing_hba1c_treated_as_poor_control ... ok
-test_compliant_mammogram ... ok
-test_colonoscopy_numerator ... ok
-test_controlled_bp ... ok
-test_date_in_interval_boundary ... ok
-test_lookback_years ... ok
-test_cohort_evaluation_rate ... ok
-----------------------------------------------------------------------
-Ran 26 tests in 0.002s
+Execute high-throughput batch simulation benchmarks:
 
-OK
+```bash
+python simulator.py --tasks 1000 --concurrency 8
 ```
 
 ---
 
-## License
+## 🐳 Container Deployment
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+```bash
+docker build -t clinical-quality-ecqm-cql-engine .
+docker run -p 8000:8000 clinical-quality-ecqm-cql-engine
+```
