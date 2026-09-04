@@ -94,6 +94,21 @@ class TestClinicalQualityECQMCQLEngineFull(unittest.TestCase):
         self.assertEqual(score.initial_population_count, 0)
         self.assertEqual(score.performance_rate_pct, 0.0)
 
+    def test_cli_batch_execution(self):
+        from cli import run_batch_evaluation
+        sample_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sample.csv"))
+        out_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_batch_out.csv"))
+        try:
+            status = run_batch_evaluation(sample_path, out_path, "CMS130v11")
+            self.assertEqual(status, 0)
+            self.assertTrue(os.path.exists(out_path))
+            with open(out_path, mode="r", encoding="utf-8") as f:
+                lines = f.readlines()
+            self.assertGreater(len(lines), 1)
+        finally:
+            if os.path.exists(out_path):
+                os.remove(out_path)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,7 @@
-task_id,target_identifier,primary_metric,secondary_metric,is_critical_flag,status_descriptor
-TASK-001,TARGET-01,28.4,14.2,True,DISCORDANT
-TASK-002,TARGET-02,12.0,4.1,False,NOMINAL
-TASK-003,TARGET-03,35.0,19.5,True,ANOMALY
+patient_id,birth_date,gender,encounter_code,encounter_date,condition_code,condition_status,condition_date,observation_code,observation_value,observation_date,procedure_code,procedure_date,medication_code,medication_date
+PT-1001,1965-04-12,male,99213,2026-03-15,I10,active,2020-01-01,8480-6,128.0,2026-03-15,45378,2022-05-10,lisinopril,2026-03-15
+PT-1002,1972-08-25,female,99214,2026-02-10,E11.9,active,2018-09-01,4548-4,7.4,2026-02-10,77067,2025-06-10,metformin,2026-02-10
+PT-1003,1958-11-03,female,99203,2026-05-20,E11.65,active,2015-04-10,4548-4,10.2,2026-05-20,,,,
+PT-1004,1980-06-18,male,99213,2026-04-15,I10,active,2019-02-10,8480-6,155.0,2026-04-15,,,amlodipine,2026-04-15
+PT-1005,1968-12-05,female,99214,2026-03-22,C18.9,active,2022-01-15,,,,,19300,2021-08-10,tamoxifen,2026-03-22
+PT-1006,1995-02-14,male,99212,2026-01-10,,,,,,,,,,

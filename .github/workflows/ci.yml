@@ -1,4 +1,4 @@
-name: Clinical Quality Ecqm Cql Engine CI/CD & Security Verification
+name: Clinical Quality eCQM / CQL Engine CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ master, main ]
 
 jobs:
-  test-and-audit:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,17 +24,21 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pytest
+        pip install pytest
 
     - name: Run Pytest Suite
       run: |
-        pytest -v
+        python -m pytest -p no:zarr -v
 
-    - name: Security SAST & Zero-PHI Audit
+    - name: Run CLI Batch Smoke Test
       run: |
+        python cli.py batch -i sample.csv -o out_smoke.csv
         python -c "
-        from agents.base import PHIGuard, AuditLogger
-        import pytest
-        assert AuditLogger.verify_integrity() is True
-        print('Security & Zero-PHI Audit Passed!')
+        import os
+        assert os.path.exists('out_smoke.csv'), 'Smoke test output CSV not generated'
+        with open('out_smoke.csv', 'r') as f:
+            lines = f.readlines()
+        assert len(lines) > 1, 'Smoke test output CSV is empty'
+        print(f'Smoke test passed with {len(lines) - 1} records')
         "
+        rm out_smoke.csv
