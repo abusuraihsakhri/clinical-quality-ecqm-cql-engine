@@ -159,3 +159,39 @@ def test_inverse_measure_report_uses_lower_is_better():
     )
     report = format_measure_report(score)
     assert "Improvement Notation: Lower is better (DECREASED)" in report
+
+def test_hba1c_nonnumeric_value_becomes_gap_not_exception():
+    patient = PatientRecord(
+        patient_id="PT-DM-TEXT",
+        birth_date="1970-01-01",
+        gender="male",
+        conditions=[ConditionRecord("E11.9", "ICD-10-CM", "2019-01-01")],
+        observations=[ObservationRecord("4548-4", "LOINC", "not available", "2026-06-01")],
+    )
+    result = CQLEquivalentEngine.evaluate_cms122v11(patient, MeasurementPeriod())
+    assert result.in_numerator
+    assert result.is_gap_in_care
+    assert "non-numeric" in result.rationale[-1]
+
+
+def test_bp_nonnumeric_value_becomes_gap_not_exception():
+    patient = PatientRecord(
+        patient_id="PT-BP-TEXT",
+        birth_date="1960-01-01",
+        gender="male",
+        conditions=[ConditionRecord("I10", "ICD-10-CM", "2020-01-01")],
+        observations=[
+            ObservationRecord("8480-6", "LOINC", "not available", "2026-05-10"),
+            ObservationRecord("8462-4", "LOINC", 78.0, "2026-05-10"),
+        ],
+    )
+    result = CQLEquivalentEngine.evaluate_cms165v11(patient, MeasurementPeriod())
+    assert not result.in_numerator
+    assert result.is_gap_in_care
+    assert "non-numeric" in result.rationale[-1]
+
+
+def test_measurement_period_rejects_reverse_dates():
+    with pytest.raises(ValueError, match="start_date"):
+        MeasurementPeriod("2026-12-31", "2026-01-01")
+
