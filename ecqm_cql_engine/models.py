@@ -1,8 +1,4 @@
-"""
-Data Models & Definitions for eCQM & CQL Evaluation Engine.
-Domain: Electronic Clinical Quality Measures & CQL Evaluator
-Standards: HL7 CQL Release 1.5, CMS/ONC eCQM Quality Measure Specifications
-"""
+"""Data models for the simplified clinical quality measure reference evaluator."""
 
 import datetime
 from dataclasses import dataclass, field
@@ -107,6 +103,12 @@ class PatientRecord:
 class MeasurementPeriod:
     start_date: str = "2026-01-01"
     end_date: str = "2026-12-31"
+
+    def __post_init__(self) -> None:
+        start = datetime.date.fromisoformat(self.start_date)
+        end = datetime.date.fromisoformat(self.end_date)
+        if start > end:
+            raise ValueError("measurement period start_date must not be after end_date")
 
 
 @dataclass
