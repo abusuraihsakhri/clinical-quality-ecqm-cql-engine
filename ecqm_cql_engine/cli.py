@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Command-Line Interface for Clinical Quality eCQM / CQL Engine
-============================================================
-Supports cohort calculation, single-patient evaluation, interactive mode,
-gap-in-care analytics, and JSON export for CMS/ONC quality measures.
-"""
+"""Command-line interface for the simplified clinical quality measure evaluator."""
 
 import sys
 import json
@@ -92,7 +87,7 @@ def get_sample_cohort() -> List[Dict[str, Any]]:
 def format_measure_report(score: PopulationMeasureScore) -> str:
     lines = []
     lines.append("=" * 78)
-    lines.append(f" eCQM QUALITY MEASURE REPORT - {score.measure_id}")
+    lines.append(f" QUALITY MEASURE REFERENCE REPORT - {score.measure_id}")
     lines.append(f" Title: {score.measure_title}")
     lines.append(f" Measurement Period: {score.measurement_period.start_date} to {score.measurement_period.end_date}")
     direction = "Higher is better" if score.improvement_notation.value == "increased" else "Lower is better"
@@ -121,7 +116,7 @@ def format_measure_report(score: PopulationMeasureScore) -> str:
 
 
 def interactive_mode():
-    print("\n--- Interactive eCQM / CQL Patient Evaluator ---")
+    print("\n--- Interactive Clinical Quality Patient Evaluator ---")
     pid = input("Enter Patient ID [e.g. PT-TEST-01]: ").strip() or "PT-TEST-01"
     bdate = input("Enter Birth Date (YYYY-MM-DD) [e.g. 1968-05-15]: ").strip() or "1968-05-15"
     gender = input("Enter Gender (male/female) [default female]: ").strip().lower() or "female"
@@ -170,7 +165,7 @@ def interactive_mode():
         pt.observations.append(ObservationRecord("8462-4", "LOINC", float(dbp), "2026-04-10"))
 
     mp = MeasurementPeriod()
-    print("\n--- Evaluating Patient Across Standard Measures ---")
+    print("\n--- Evaluating Patient Across Implemented Rules ---")
     for m_id in ["CMS130v11", "CMS122v11", "CMS125v11", "CMS165v11", "CMS68v12"]:
         score = CQLEquivalentEngine.evaluate_population_cohort(m_id, [pt], mp)
         print(f"\n>> {m_id} ({score.measure_title}):")
@@ -290,7 +285,7 @@ def run_batch_evaluation(input_file: str, output_file: str, measure_id: str = "C
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Clinical Quality eCQM & CQL Measure Execution Engine"
+        description="Clinical quality measure reference evaluator"
     )
     subparsers = parser.add_subparsers(dest="subcommand", help="Available subcommands")
 
@@ -316,7 +311,7 @@ def main():
         return run_batch_evaluation(args.input, args.output, args.measure)
 
     if args.list_measures:
-        print("\n=== Supported eCQM Measure Specifications ===")
+        print("\n=== Implemented Reference Measure Rules ===")
         print("  * CMS130v11: Colorectal Cancer Screening (Age 45-75)")
         print("  * CMS122v11: Diabetes: Hemoglobin A1c Poor Control > 9.0% (Age 18-75, Inverse)")
         print("  * CMS125v11: Breast Cancer Screening (Females Age 52-74)")
