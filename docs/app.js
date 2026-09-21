@@ -53,14 +53,16 @@ function maybePush(list, item, requiredKey) {
 
 function buildPatientPayload() {
   const observations = [];
-  if (byId("observationCode").value.trim()) {
-    const rawValue = byId("observationValue").value.trim();
+  for (const suffix of ["", "2"]) {
+    const code = byId("observationCode" + suffix).value.trim();
+    if (!code) continue;
+    const rawValue = byId("observationValue" + suffix).value.trim();
     let value = rawValue;
     if (rawValue !== "" && Number.isFinite(Number(rawValue))) value = Number(rawValue);
     observations.push({
-      code: byId("observationCode").value.trim(),
+      code,
       value,
-      date: byId("observationDate").value || "2026-06-01",
+      date: byId("observationDate" + suffix).value || "2026-06-01",
     });
   }
 
@@ -198,11 +200,11 @@ json.dumps(_score.to_dict())
 function loadExample() {
   const measure = byId("measure").value;
   const defaults = {
-    CMS130v11: { gender: "female", condition: "", obs: "", value: "", proc: "45378", procDate: "2024-01-01", med: "" },
-    CMS122v11: { gender: "male", condition: "E11.9", obs: "4548-4", value: "7.2", proc: "", procDate: "2026-06-01", med: "metformin" },
-    CMS125v11: { gender: "female", condition: "", obs: "", value: "", proc: "77067", procDate: "2025-08-10", med: "" },
-    CMS165v11: { gender: "male", condition: "I10", obs: "8480-6", value: "128", proc: "", procDate: "2026-06-01", med: "amlodipine" },
-    CMS68v12: { gender: "female", condition: "", obs: "", value: "", proc: "", procDate: "2026-06-01", med: "atorvastatin" },
+    CMS130v11: { gender: "female", condition: "", obs: "", value: "", obs2: "", value2: "", proc: "45378", procDate: "2024-01-01", med: "" },
+    CMS122v11: { gender: "male", condition: "E11.9", obs: "4548-4", value: "7.2", obs2: "", value2: "", proc: "", procDate: "2026-06-01", med: "metformin" },
+    CMS125v11: { gender: "female", condition: "", obs: "", value: "", obs2: "", value2: "", proc: "77067", procDate: "2025-08-10", med: "" },
+    CMS165v11: { gender: "male", condition: "I10", obs: "8480-6", value: "128", obs2: "8462-4", value2: "82", proc: "", procDate: "2026-06-01", med: "amlodipine" },
+    CMS68v12: { gender: "female", condition: "", obs: "", value: "", obs2: "", value2: "", proc: "", procDate: "2026-06-01", med: "atorvastatin" },
   }[measure];
 
   byId("patientId").value = "PT-DEMO-01";
@@ -215,20 +217,19 @@ function loadExample() {
   byId("observationCode").value = defaults.obs;
   byId("observationValue").value = defaults.value;
   byId("observationDate").value = "2026-06-01";
+  byId("observationCode2").value = defaults.obs2;
+  byId("observationValue2").value = defaults.value2;
+  byId("observationDate2").value = "2026-06-01";
   byId("procedureCode").value = defaults.proc;
   byId("procedureDate").value = defaults.procDate;
   byId("medicationCode").value = defaults.med;
   byId("medicationDate").value = "2026-06-01";
 
-  if (measure === "CMS165v11") {
-    byId("resultHint").textContent = "For BP, add a diastolic observation by changing the code/value after one run or use the CLI for multi-observation records.";
-  } else {
-    byId("resultHint").textContent = "Run an evaluation to see population status and rationale.";
-  }
+  byId("resultHint").textContent = "Run an evaluation to see population status and rationale.";
 }
 
 function clearClinicalData() {
-  for (const id of ["conditionCode", "observationCode", "observationValue", "procedureCode", "medicationCode"]) {
+  for (const id of ["conditionCode", "observationCode", "observationValue", "observationCode2", "observationValue2", "procedureCode", "medicationCode"]) {
     byId(id).value = "";
   }
 }
