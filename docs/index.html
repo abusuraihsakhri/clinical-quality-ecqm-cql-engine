@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>Clinical Quality Measure Evaluator</title>
+  <meta name="description" content="Browser-based reference evaluator for simplified electronic clinical quality measure rules.">
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Reference implementation</p>
+        <h1>Clinical Quality Measure Evaluator</h1>
+        <p class="subtitle">Evaluate one patient against the repository's simplified measure rules. Processing stays in this browser.</p>
+      </div>
+      <div class="top-actions">
+        <span id="runtimeStatus" class="status" role="status" aria-live="polite">Loading Python…</span>
+        <button id="themeToggle" class="icon-button" type="button" aria-label="Switch color theme">◐</button>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Measure evaluator">
+      <form id="patientForm" class="panel form-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Patient inputs</h2>
+            <p>Use coded examples or enter your own test data.</p>
+          </div>
+          <button id="loadExample" class="secondary" type="button">Load example</button>
+        </div>
+
+        <div class="form-grid">
+          <label class="wide">
+            <span>Measure</span>
+            <select id="measure" name="measure">
+              <option value="CMS130v11">CMS130v11 · Colorectal screening</option>
+              <option value="CMS122v11">CMS122v11 · HbA1c poor control</option>
+              <option value="CMS125v11">CMS125v11 · Breast cancer screening</option>
+              <option value="CMS165v11">CMS165v11 · Blood pressure control</option>
+              <option value="CMS68v12">CMS68v12 · Medication documentation</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Patient ID</span>
+            <input id="patientId" name="patientId" value="PT-DEMO-01" autocomplete="off">
+          </label>
+          <label>
+            <span>Birth date</span>
+            <input id="birthDate" name="birthDate" type="date" value="1960-01-01" required>
+          </label>
+          <label>
+            <span>Sex</span>
+            <select id="gender" name="gender">
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <label>
+            <span>Encounter code</span>
+            <input id="encounterCode" name="encounterCode" value="99213" autocomplete="off">
+          </label>
+          <label>
+            <span>Encounter date</span>
+            <input id="encounterDate" name="encounterDate" type="date" value="2026-06-01">
+          </label>
+
+          <label>
+            <span>Condition code</span>
+            <input id="conditionCode" name="conditionCode" value="" placeholder="e.g. I10" autocomplete="off">
+          </label>
+          <label>
+            <span>Condition date</span>
+            <input id="conditionDate" name="conditionDate" type="date" value="2020-01-01">
+          </label>
+          <label>
+            <span>Observation code</span>
+            <input id="observationCode" name="observationCode" value="" placeholder="e.g. 8480-6" autocomplete="off">
+          </label>
+          <label>
+            <span>Observation value</span>
+            <input id="observationValue" name="observationValue" value="" placeholder="e.g. 128" autocomplete="off">
+          </label>
+          <label>
+            <span>Observation date</span>
+            <input id="observationDate" name="observationDate" type="date" value="2026-06-01">
+          </label>
+
+          <label>
+            <span>Procedure code</span>
+            <input id="procedureCode" name="procedureCode" value="45378" placeholder="e.g. 45378" autocomplete="off">
+          </label>
+          <label>
+            <span>Procedure date</span>
+            <input id="procedureDate" name="procedureDate" type="date" value="2024-01-01">
+          </label>
+          <label>
+            <span>Medication code</span>
+            <input id="medicationCode" name="medicationCode" value="" placeholder="e.g. metformin" autocomplete="off">
+          </label>
+          <label>
+            <span>Medication date</span>
+            <input id="medicationDate" name="medicationDate" type="date" value="2026-06-01">
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button id="analyze" class="primary" type="submit" disabled>Analyze</button>
+          <button id="clearForm" class="secondary" type="button">Clear clinical data</button>
+        </div>
+      </form>
+
+      <section class="panel result-panel" aria-labelledby="resultTitle">
+        <div class="panel-heading">
+          <div>
+            <h2 id="resultTitle">Result</h2>
+            <p id="resultHint">Run an evaluation to see population status and rationale.</p>
+          </div>
+        </div>
+
+        <div id="resultEmpty" class="empty-state">
+          <strong>Ready for local evaluation</strong>
+          <span>No patient inputs are sent to a server.</span>
+        </div>
+
+        <div id="resultContent" class="result-content" hidden>
+          <div class="result-hero">
+            <span id="resultStatus" class="result-status">—</span>
+            <strong id="resultMeasure">—</strong>
+            <span id="resultRate" class="rate">—</span>
+          </div>
+          <dl id="populationGrid" class="population-grid"></dl>
+          <div class="rationale">
+            <h3>Rationale</h3>
+            <ul id="rationaleList"></ul>
+          </div>
+        </div>
+
+        <aside class="notice">
+          <strong>Scope</strong>
+          <span>This is a simplified reference implementation, not a certified CQL engine or clinical decision-support system.</span>
+        </aside>
+      </section>
+    </section>
+
+    <footer>
+      <span>Runs locally with Python in WebAssembly.</span>
+      <a href="https://github.com/abusuraihsakhri/clinical-quality-ecqm-cql-engine" rel="noopener noreferrer">Source repository</a>
+    </footer>
+  </main>
+</body>
+</html>
