@@ -1,0 +1,35 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > release-notes.md <<'EOF'
+          This release fixes audited measure-evaluation and packaging defects, adds regression coverage, strengthens continuous integration, and adds the browser-based GitHub Pages evaluator.
+
+          Key changes:
+          - exact calendar lookback boundaries;
+          - corrected encounter qualification and FIT-DNA evaluation;
+          - corrected paired systolic/diastolic blood-pressure handling;
+          - explicit errors for unsupported measure identifiers;
+          - reliable installed CLI entry point;
+          - local browser execution with Pyodide;
+          - updated documentation and implementation-scope warnings.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag
