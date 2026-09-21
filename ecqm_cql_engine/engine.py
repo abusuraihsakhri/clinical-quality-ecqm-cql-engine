@@ -4,8 +4,9 @@ Domain: Electronic Clinical Quality Measures & CQL Evaluator
 Standards: HL7 CQL Release 1.5, CMS/ONC eCQM Quality Measure Specifications
 """
 
+import calendar
 import datetime
-from typing import Dict, List, Optional, Any, Set, Callable
+from typing import Dict, List, Optional, Any, Callable, Tuple
 from .models import (
     PatientRecord,
     EncounterRecord,
@@ -35,26 +36,37 @@ class CQLExpressionEvaluator:
         return start <= target <= end
 
     @staticmethod
+    def _subtract_calendar_months(anchor: datetime.date, months: int) -> datetime.date:
+        """Return the calendar date `months` before `anchor`, clamping month-end dates."""
+        if months < 0:
+            raise ValueError("months must be non-negative")
+        month_index = anchor.year * 12 + (anchor.month - 1) - months
+        year, month_zero_based = divmod(month_index, 12)
+        month = month_zero_based + 1
+        day = min(anchor.day, calendar.monthrange(year, month)[1])
+        return datetime.date(year, month, day)
+
+    @staticmethod
     def is_date_within_lookback_months(target_date_str: str, anchor_date_str: str, months: int) -> bool:
-        """Check if target_date is within `months` prior to anchor_date."""
+        """Check whether a date is inside an inclusive calendar-month lookback window."""
         target = datetime.date.fromisoformat(target_date_str)
         anchor = datetime.date.fromisoformat(anchor_date_str)
-        if target > anchor:
-            return False
-        # Approximate 30.4375 days per month
-        diff_days = (anchor - target).days
-        max_days = int(months * 30.5)
-        return diff_days <= max_days
+        cutoff = CQLExpressionEvaluator._subtract_calendar_months(anchor, months)
+        return cutoff <= target <= anchor
 
     @staticmethod
     def is_date_within_lookback_years(target_date_str: str, anchor_date_str: str, years: int) -> bool:
-        """Check if target_date is within `years` prior to anchor_date."""
+        """Check whether a date is inside an inclusive calendar-year lookback window."""
+        if years < 0:
+            raise ValueError("years must be non-negative")
         target = datetime.date.fromisoformat(target_date_str)
         anchor = datetime.date.fromisoformat(anchor_date_str)
-        if target > anchor:
-            return False
-        diff_days = (anchor - target).days
-        return diff_days <= (years * 366)
+        try:
+            cutoff = anchor.replace(year=anchor.year - years)
+        except ValueError:
+            # February 29 anchored to a non-leap year maps to February 28.
+            cutoff = anchor.replace(year=anchor.year - years, day=28)
+        return cutoff <= target <= anchor
 
 
 # Standard Clinical CodeSets (SNOMED, LOINC, ICD-10, CPT, RxNorm)
@@ -73,7 +85,7 @@ MAMMOGRAM_PROC_CODES = {"77067", "77063", "77065", "77066", "24623002"}
 BILATERAL_MASTECTOMY_CODES = {"19300", "0HTV0ZZ", "172043006"}
 
 HYPERTENSION_CONDITION_CODES = {"I10", "59621000", "38341003"}
-SYSTOLIC_BP_LOINC = {"8480-6", "8462-4"}
+SYSTOLIC_BP_LOINC = {"8480-6"}
 DIASTOLIC_BP_LOINC = {"8462-4", "8453-3"}
 ESRD_CODES = {"N18.6", "46177005"}
 PREGNANCY_CODES = {"Z34.00", "Z34.80", "77386006"}
@@ -101,9 +113,10 @@ class CQLEquivalentEngine:
 
         # Qualifying encounter during MP
         has_qualifying_encounter = any(
-            enc.code in OUTPATIENT_ENCOUNTER_CODES and CQLExpressionEvaluator.is_date_in_interval(enc.period_start, mp.start_date, mp.end_date)
+            enc.code in OUTPATIENT_ENCOUNTER_CODES
+            and CQLExpressionEvaluator.is_date_in_interval(enc.period_start, mp.start_date, mp.end_date)
             for enc in patient.encounters
-        ) or len(patient.encounters) > 0
+        )
 
         if not (45 <= age_at_start <= 75 and has_qualifying_encounter):
             res.rationale.append(f"Excluded from IP: Age={age_at_start} (must be 45-75) or no qualifying encounter in MP.")
@@ -134,13 +147,13 @@ class CQLEquivalentEngine:
         )
         # 2. FIT-DNA within 3 years
         fit_dna_done = any(
-            (obs.code in FIT_DNA_CODES or proc.code in FIT_DNA_CODES)
-            and CQLExpressionEvaluator.is_date_within_lookback_years(obs.date if obs.code in FIT_DNA_CODES else proc.performed_date, mp.end_date, 3)
+            obs.code in FIT_DNA_CODES
+            and CQLExpressionEvaluator.is_date_within_lookback_years(obs.date, mp.end_date, 3)
             for obs in patient.observations
-            for proc in patient.procedures
         ) or any(
-            obs.code in FIT_DNA_CODES and CQLExpressionEvaluator.is_date_within_lookback_years(obs.date, mp.end_date, 3)
-            for obs in patient.observations
+            proc.code in FIT_DNA_CODES
+            and CQLExpressionEvaluator.is_date_within_lookback_years(proc.performed_date, mp.end_date, 3)
+            for proc in patient.procedures
         )
         # 3. Colonoscopy within 10 years
         colonoscopy_done = any(
@@ -299,27 +312,27 @@ class CQLEquivalentEngine:
             res.rationale.append(f"Denominator Exclusion Met: {reason}.")
             return res
 
-        # Find SBP and DBP observations during MP
-        sbp_obs = [
-            obs for obs in patient.observations
-            if obs.code in SYSTOLIC_BP_LOINC and CQLExpressionEvaluator.is_date_in_interval(obs.date, mp.start_date, mp.end_date)
-        ]
-        dbp_obs = [
-            obs for obs in patient.observations
-            if obs.code in DIASTOLIC_BP_LOINC and CQLExpressionEvaluator.is_date_in_interval(obs.date, mp.start_date, mp.end_date)
-        ]
+        # Use the most recent date that has both systolic and diastolic values.
+        sbp_by_date: Dict[str, ObservationRecord] = {}
+        dbp_by_date: Dict[str, ObservationRecord] = {}
+        for obs in patient.observations:
+            if not CQLExpressionEvaluator.is_date_in_interval(obs.date, mp.start_date, mp.end_date):
+                continue
+            if obs.code in SYSTOLIC_BP_LOINC:
+                sbp_by_date[obs.date] = obs
+            if obs.code in DIASTOLIC_BP_LOINC:
+                dbp_by_date[obs.date] = obs
 
-        if not sbp_obs or not dbp_obs:
+        paired_dates = sorted(set(sbp_by_date).intersection(dbp_by_date), reverse=True)
+        if not paired_dates:
             res.in_numerator = False
             res.is_gap_in_care = True
-            res.rationale.append("Numerator Not Met: Missing Blood Pressure reading during MP.")
+            res.rationale.append("Numerator Not Met: No paired systolic/diastolic blood pressure reading during MP.")
             return res
 
-        sbp_obs.sort(key=lambda x: x.date, reverse=True)
-        dbp_obs.sort(key=lambda x: x.date, reverse=True)
-
-        recent_sbp = float(sbp_obs[0].value)
-        recent_dbp = float(dbp_obs[0].value)
+        recent_date = paired_dates[0]
+        recent_sbp = float(sbp_by_date[recent_date].value)
+        recent_dbp = float(dbp_by_date[recent_date].value)
 
         if recent_sbp < 140.0 and recent_dbp < 90.0:
             res.in_numerator = True
@@ -340,9 +353,10 @@ class CQLEquivalentEngine:
         res = PatientMeasureResult(patient_id=patient.patient_id, measure_id="CMS68v12")
         age_at_end = patient.calculate_age_at(mp.end_date)
         has_encounter = any(
-            CQLExpressionEvaluator.is_date_in_interval(enc.period_start, mp.start_date, mp.end_date)
+            enc.code in OUTPATIENT_ENCOUNTER_CODES
+            and CQLExpressionEvaluator.is_date_in_interval(enc.period_start, mp.start_date, mp.end_date)
             for enc in patient.encounters
-        ) or len(patient.encounters) > 0
+        )
 
         if not (age_at_end >= 18 and has_encounter):
             res.rationale.append(f"Excluded from IP: Age={age_at_end} or no encounter.")
@@ -384,8 +398,8 @@ class CQLEquivalentEngine:
 
         measure_key = measure_id.upper()
         if measure_key not in measure_evaluators:
-            # Fallback to CMS130V11
-            measure_key = "CMS130V11"
+            supported = ", ".join(sorted(measure_evaluators))
+            raise ValueError(f"Unsupported measure_id '{measure_id}'. Supported measures: {supported}")
 
         title, improvement, eval_func = measure_evaluators[measure_key]
 
