@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clinical-quality-ecqm-cql-engine"
-version = "2.1.0"
+version = "2.1.1"
 description = "Reference implementation for evaluating simplified electronic clinical quality measure logic"
 readme = "README.md"
 authors = [{ name = "NAME" }]

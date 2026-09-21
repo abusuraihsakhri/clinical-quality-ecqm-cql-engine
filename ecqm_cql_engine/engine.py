@@ -1,7 +1,7 @@
-"""
-Core eCQM & CQL Measure Execution Engine
-Domain: Electronic Clinical Quality Measures & CQL Evaluator
-Standards: HL7 CQL Release 1.5, CMS/ONC eCQM Quality Measure Specifications
+"""Simplified clinical quality measure population-rule evaluator.
+
+This module does not parse or execute CQL and is not a conformance
+implementation of official CMS, ONC, NCQA, or HL7 measure specifications.
 """
 
 import calendar
@@ -22,10 +22,7 @@ from .models import (
 
 
 class CQLExpressionEvaluator:
-    """
-    Evaluator for Clinical Quality Language (CQL) temporal predicates,
-    code matching, age calculations, and set operations.
-    """
+    """Compatibility-named helpers for date and lookback calculations."""
 
     @staticmethod
     def is_date_in_interval(target_date_str: str, start_date_str: str, end_date_str: str) -> bool:
@@ -69,7 +66,7 @@ class CQLExpressionEvaluator:
         return cutoff <= target <= anchor
 
 
-# Standard Clinical CodeSets (SNOMED, LOINC, ICD-10, CPT, RxNorm)
+# Limited reference code sets used by the simplified rules.
 COLORECTAL_CANCER_CODES = {"C18.0", "C18.9", "C19", "C20", "363406005"}
 COLONOSCOPY_CODES = {"45378", "45380", "45385", "705000007"}
 FOBT_LAB_CODES = {"14563-1", "14564-9", "29771-3", "82270", "82274"}
@@ -95,14 +92,16 @@ OUTPATIENT_ENCOUNTER_CODES = {"99202", "99203", "99204", "99205", "99212", "9921
 
 
 class CQLEquivalentEngine:
-    """
-    Standard Measure Execution Engine implementing CMS/ONC eCQM quality measures.
+    """Evaluate simplified rules that retain historical CMS-style identifiers.
+
+    The class name is preserved for compatibility. It is not a CQL execution
+    engine and should not be used as an official measure-conformance implementation.
     """
 
     @classmethod
     def evaluate_cms130v11(cls, patient: PatientRecord, mp: MeasurementPeriod) -> PatientMeasureResult:
         """
-        CMS130v11: Colorectal Cancer Screening
+        Reference rule labelled CMS130v11: Colorectal Cancer Screening
         - Initial Population: Patients 45-75 years of age at start of MP with an outpatient visit during MP.
         - Denominator: Equals Initial Population.
         - Denominator Exclusions: Total colectomy, colorectal cancer history, or hospice/palliative care.
@@ -184,7 +183,7 @@ class CQLEquivalentEngine:
     @classmethod
     def evaluate_cms122v11(cls, patient: PatientRecord, mp: MeasurementPeriod) -> PatientMeasureResult:
         """
-        CMS122v11: Diabetes: Hemoglobin A1c (HbA1c) Poor Control (> 9.0%)
+        Reference rule labelled CMS122v11: Diabetes: Hemoglobin A1c (HbA1c) Poor Control (> 9.0%)
         - Inverse measure: Higher rate indicates poorer quality.
         - Initial Population: Patients 18-75 years of age with diabetes diagnosis.
         - Denominator: Equals Initial Population.
@@ -225,7 +224,15 @@ class CQLEquivalentEngine:
             # Sort by date descending
             hba1c_obs.sort(key=lambda x: x.date, reverse=True)
             most_recent = hba1c_obs[0]
-            val = float(most_recent.value)
+            try:
+                val = float(most_recent.value)
+            except (TypeError, ValueError):
+                res.in_numerator = True
+                res.is_gap_in_care = True
+                res.rationale.append(
+                    "Numerator Met (Poor Control): Most recent HbA1c value is non-numeric or unavailable."
+                )
+                return res
             if val > 9.0:
                 res.in_numerator = True
                 res.is_gap_in_care = True
@@ -239,7 +246,7 @@ class CQLEquivalentEngine:
     @classmethod
     def evaluate_cms125v11(cls, patient: PatientRecord, mp: MeasurementPeriod) -> PatientMeasureResult:
         """
-        CMS125v11: Breast Cancer Screening
+        Reference rule labelled CMS125v11: Breast Cancer Screening
         - Initial Population: Women 52-74 years of age at end of MP.
         - Denominator: Equals Initial Population.
         - Denominator Exclusions: Bilateral mastectomy or hospice care.
@@ -284,7 +291,7 @@ class CQLEquivalentEngine:
     @classmethod
     def evaluate_cms165v11(cls, patient: PatientRecord, mp: MeasurementPeriod) -> PatientMeasureResult:
         """
-        CMS165v11: Controlling High Blood Pressure
+        Reference rule labelled CMS165v11: Controlling High Blood Pressure
         - Initial Population: Patients 18-85 years of age with essential hypertension.
         - Denominator: Equals Initial Population.
         - Denominator Exclusions: ESRD, dialysis, pregnancy, hospice.
@@ -331,8 +338,16 @@ class CQLEquivalentEngine:
             return res
 
         recent_date = paired_dates[0]
-        recent_sbp = float(sbp_by_date[recent_date].value)
-        recent_dbp = float(dbp_by_date[recent_date].value)
+        try:
+            recent_sbp = float(sbp_by_date[recent_date].value)
+            recent_dbp = float(dbp_by_date[recent_date].value)
+        except (TypeError, ValueError):
+            res.in_numerator = False
+            res.is_gap_in_care = True
+            res.rationale.append(
+                "Numerator Not Met: Most recent paired blood pressure contains a non-numeric value."
+            )
+            return res
 
         if recent_sbp < 140.0 and recent_dbp < 90.0:
             res.in_numerator = True
@@ -346,7 +361,7 @@ class CQLEquivalentEngine:
     @classmethod
     def evaluate_cms68v12(cls, patient: PatientRecord, mp: MeasurementPeriod) -> PatientMeasureResult:
         """
-        CMS68v12: Documentation of Current Medications in the Medical Record
+        Reference rule labelled CMS68v12: Documentation of Current Medications in the Medical Record
         - Initial Population: Patients >= 18 with qualifying encounter.
         - Numerator: Current medications documented during encounter.
         """
