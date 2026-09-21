@@ -1,7 +1,7 @@
-"""
-eCQM & CQL Measure Execution Engine Package
-Domain: Clinical Quality Measures & CQL Evaluator
-Standards: HL7 CQL Release 1.5, CMS/ONC eCQM Measure Specifications
+"""Simplified clinical quality measure reference evaluator.
+
+The public API retains historical class and measure identifiers for compatibility.
+This package does not parse or execute Clinical Quality Language (CQL).
 """
 
 from .models import (
