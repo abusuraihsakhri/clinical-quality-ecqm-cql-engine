@@ -1,15 +1,11 @@
 name: Publish release
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Release tag, for example v2.1.0
-        required: true
-        type: string
   push:
-    tags:
-      - "v*"
+    branches: [master]
+    paths:
+      - "pyproject.toml"
+      - ".github/workflows/release.yml"
 
 permissions:
   contents: write
@@ -19,11 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create GitHub release
+
+      - name: Read package version
+        id: version
+        run: |
+          VERSION="$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as handle:
+              print(tomllib.load(handle)["project"]["version"])
+          PY
+          )"
+          echo "tag=v${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish release if missing
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists."
+            exit 0
+          fi
+
           cat > release-notes.md <<'EOF'
           This release fixes audited measure-evaluation and packaging defects, adds regression coverage, strengthens continuous integration, and adds the browser-based GitHub Pages evaluator.
 
@@ -37,14 +50,7 @@ jobs:
           - updated documentation and implementation-scope warnings.
           EOF
 
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
-              --title "${RELEASE_TAG}" \
-              --notes-file release-notes.md
-          else
-            gh release create "${RELEASE_TAG}" \
-              --title "${RELEASE_TAG}" \
-              --notes-file release-notes.md \
-              --verify-tag
-          fi
+          gh release create "${RELEASE_TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "${RELEASE_TAG}" \
+            --notes-file release-notes.md
